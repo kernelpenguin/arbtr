@@ -1,0 +1,271 @@
+<div class="dev-layout">
+  <!-- Glowing "Furnace" Background representing the collective engine -->
+  <div class="glow-orb"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- Top Nav with Theme and Language Switchers -->
+  <nav class="dev-nav">
+    <div class="dev-logo">
+      <div class="logo-mark">A</div>
+      <span class="logo-text">ARBEITERS</span>
+    </div>
+    <div class="nav-links">
+      <a href="#simulator">{{ i18n.t('nav.simulator') }}</a>
+      <a href="#manifesto">{{ i18n.t('nav.manifesto') }}</a>
+      <a href="#features">{{ i18n.t('nav.architecture') }}</a>
+    </div>
+    <div class="nav-actions">
+      <!-- Theme Switcher -->
+      <button 
+        class="switcher-btn theme-switcher" 
+        (click)="themeService.cycleTheme()"
+        [attr.aria-label]="themeLabel()"
+        title="{{ themeLabel() }}">
+        <app-icon [name]="themeIcon()" [size]="18"></app-icon>
+      </button>
+
+      <!-- Language Switcher -->
+      <button 
+        class="switcher-btn lang-switcher" 
+        (click)="i18n.setLanguage(i18n.language() === 'pt-BR' ? 'en' : i18n.language() === 'en' ? 'es' : 'pt-BR')"
+        [attr.aria-label]="i18n.languageName()"
+        title="{{ i18n.languageName() }}">
+        <app-icon name="globe" [size]="18"></app-icon>
+        <span class="lang-code">{{ i18n.language() === 'pt-BR' ? 'PT' : i18n.language() === 'en' ? 'EN' : 'ES' }}</span>
+      </button>
+
+      <button id="nav-btn-login" class="btn-dev-outline">{{ i18n.t('nav.accessPanel') }}</button>
+    </div>
+  </nav>
+
+  <!-- Centered Hero -->
+  <main class="dev-hero">
+    <div class="hero-chip mono">
+      <span class="pulse-dot"></span>
+      {{ i18n.t('hero.chip') }}
+    </div>
+    
+    <h1 class="hero-title" [innerHTML]="i18n.t('hero.title')"></h1>
+    
+    <p class="hero-subtitle">
+      {{ i18n.t('hero.subtitle') }}
+    </p>
+    
+    <div class="hero-buttons">
+      <a id="hero-btn-test-simulator" href="#simulator" class="btn-dev-primary text-decoration-none">
+        {{ i18n.t('hero.testSimulator') }}
+      </a>
+      <a id="hero-btn-explore-architecture" href="#features" class="btn-dev-secondary text-decoration-none">
+        {{ i18n.t('hero.viewFeatures') }}
+      </a>
+    </div>
+  </main>
+
+  <!-- Interactive Job Match Simulator Section -->
+  <section id="simulator" class="simulator-section">
+    <div class="section-header">
+      <h2 class="section-title">{{ i18n.t('simulator.title') }}</h2>
+      <p class="section-desc">
+        {{ i18n.t('simulator.description') }}
+      </p>
+    </div>
+
+    <div class="simulator-grid geo-cut">
+      
+      <!-- Left Panel: Worker Profile Configuration -->
+      <div class="config-panel">
+        <div class="panel-header mono">
+          <span>{{ i18n.t('simulator.profileConfig') }}</span>
+        </div>
+        
+        <div class="panel-body">
+          <!-- Skills Selector -->
+          <div class="control-group">
+            <label class="control-label">{{ i18n.t('simulator.mySkills') }}</label>
+            <div class="skills-grid">
+              @for (skill of allSkills; track skill) {
+                <button 
+                  [id]="'skill-btn-' + skill.toLowerCase().replace('/', '-')"
+                  (click)="toggleSkill(skill)" 
+                  [class.active]="userSkills().includes(skill)"
+                  class="skill-badge">
+                  {{ skill }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Category Selector -->
+          <div class="control-group">
+            <label class="control-label">{{ i18n.t('simulator.platform') }}</label>
+            <div class="category-tabs">
+              @for (cat of categories; track cat) {
+                <button 
+                  [id]="'category-tab-' + cat.toLowerCase().replace('/', '-')"
+                  (click)="setCategory(cat)"
+                  [class.active]="selectedCategory() === cat"
+                  class="category-tab mono">
+                  {{ cat }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Minimum Wage Selector -->
+          <div class="control-group">
+            <div class="label-row">
+              <label class="control-label">{{ i18n.t('simulator.minWage') }}</label>
+              <span class="wage-value mono">${{ minWagePreferred() }}/hr</span>
+            </div>
+            <input 
+              id="wage-filter-slider"
+              type="range" 
+              min="15" 
+              max="90" 
+              step="5"
+              [value]="minWagePreferred()"
+              (input)="updateWage($event)"
+              class="wage-slider">
+            <div class="slider-helper mono">
+              <span>$15/hr</span>
+              <span>$90/hr</span>
+            </div>
+            
+            @if (selectedCategory() !== 'All') {
+              <div class="slider-notice mono">
+                {{ i18n.t('simulator.autoAdjusted') }}: {{ selectedCategory() }}
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Scraped Opportunities Feed -->
+      <div class="feed-panel">
+        <div class="panel-header mono">
+          <span>{{ i18n.t('simulator.opportunities') }}</span>
+          <!-- Dynamic Stats counters -->
+          <div class="live-status">
+            <span class="live-indicator"></span>
+            <span>{{ i18n.t('simulator.jobs') }}: {{ totalOpportunities() }}</span>
+          </div>
+        </div>
+
+        <div class="feed-stats-bar">
+          <div class="stat-item">
+            <span class="stat-val mono">${{ avgWage() }}/hr</span>
+            <span class="stat-lbl">{{ i18n.t('simulator.categoryAvg') }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-val mono">{{ perfectMatchesCount() }}</span>
+            <span class="stat-lbl">{{ i18n.t('simulator.strongMatches') }}</span>
+          </div>
+        </div>
+
+        <div class="opportunities-list">
+          @if (opportunitiesResource.isLoading()) {
+            <div class="loading-state mono">
+              <div class="loader-spinner"></div>
+              <span>{{ i18n.t('simulator.loading') }}</span>
+            </div>
+          } @else {
+            @for (opp of filteredOpportunities(); track opp.title) {
+              <div class="opp-card" [class.high-match]="opp.matchScore >= 80">
+                <div class="opp-header">
+                  <span class="opp-platform mono">{{ opp.platform }}</span>
+                  <span class="opp-type mono">{{ opp.type }}</span>
+                </div>
+                
+                <h4 class="opp-title">{{ opp.title }}</h4>
+                
+                <div class="opp-footer">
+                  <div class="opp-wage mono">${{ opp.wage.toFixed(2) }}/hr</div>
+                  
+                  <div class="match-badge mono" [style.color]="opp.matchScore >= 80 ? 'var(--accent-red)' : 'var(--text-secondary)'">
+                    {{ opp.matchScore }}% MATCH
+                  </div>
+                </div>
+
+                <!-- Match Score progress bar -->
+                <div class="match-bar-container">
+                  <div class="match-bar" [style.width.%]="opp.matchScore" [class.red-bar]="opp.matchScore >= 80"></div>
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-state mono">
+                <span>{{ i18n.t('simulator.noJobs') }}</span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Bento Box Features Grid -->
+  <section id="features" class="bento-section">
+    <div class="section-header text-center">
+      <h2 class="section-title">{{ i18n.t('features.title') }}</h2>
+      <p class="section-desc">{{ i18n.t('features.subtitle') }}</p>
+    </div>
+    
+    <div class="bento-grid">
+      
+      <!-- Box 1 -->
+      <div class="bento-card span-2 geo-cut">
+        <div class="card-icon">
+          <app-icon name="server" [size]="24"></app-icon>
+        </div>
+        <h3>{{ i18n.t('features.fleet.title') }}</h3>
+        <p>{{ i18n.t('features.fleet.description') }}</p>
+      </div>
+
+      <!-- Box 2 -->
+      <div class="bento-card">
+        <h2 class="metric-big mono">0%</h2>
+        <h3>{{ i18n.t('features.fee.title') }}</h3>
+        <p>{{ i18n.t('features.fee.description') }}</p>
+      </div>
+
+      <!-- Box 3 -->
+      <div class="bento-card">
+        <div class="card-icon">
+          <app-icon name="shield" [size]="24"></app-icon>
+        </div>
+        <h3>{{ i18n.t('features.session.title') }}</h3>
+        <p>{{ i18n.t('features.session.description') }}</p>
+      </div>
+
+      <!-- Box 4 -->
+      <div class="bento-card span-2 geo-cut-reverse">
+        <div class="card-visual">
+          <div class="bar-chart">
+            <div class="bar" style="height: 40%"></div>
+            <div class="bar" style="height: 70%"></div>
+            <div class="bar" style="height: 50%"></div>
+            <div class="bar" style="height: 100%; background: var(--accent-red)"></div>
+          </div>
+        </div>
+        <h3>{{ i18n.t('features.optimization.title') }}</h3>
+        <p>{{ i18n.t('features.optimization.description') }}</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Manifesto Footer -->
+  <footer id="manifesto" class="dev-footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <div class="logo-mark">A</div>
+        <span class="logo-text">ARBEITERS</span>
+        <p class="brand-sub">{{ i18n.t('footer.tagline') }}</p>
+      </div>
+      <div class="footer-meta mono">
+        <span>{{ i18n.t('footer.license') }}</span>
+        <span>{{ i18n.t('footer.forged') }}</span>
+      </div>
+    </div>
+  </footer>
+</div>

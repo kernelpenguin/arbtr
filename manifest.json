@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Arbeiters Collector",
+  "version": "0.1.0",
+  "description": "Coleta metadados de oportunidades de Outlier, DataAnnotation e Alignerr para o Arbeiters",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.outlier.ai/*",
+    "https://*.dataannotation.tech/*",
+    "https://app.alignerr.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.outlier.ai/*",
+        "https://*.dataannotation.tech/*",
+        "https://app.alignerr.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Arbeiters"
+  }
+}

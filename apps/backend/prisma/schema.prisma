@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// USER & PROFILE
+// ============================================================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+
+  // Profile fields
+  experienceLevel String?
+  bio             String?
+  preferredWageMin Float?
+
+  // Preferences (stored as JSON for flexibility)
+  preferences     Json?
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  skills          UserSkill[]
+  languages       UserLanguage[]
+  interests       UserInterest[]
+  platformRatings PlatformRating[]
+  savedOpportunities SavedOpportunity[]
+
+  @@index([email])
+}
+
+// ============================================================================
+// NORMALIZED SKILLS & LANGUAGES
+// ============================================================================
+
+model Skill {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  category    String?  // e.g., "programming", "language", "tool"
+  description String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserSkill[]
+  opportunities OpportunitySkill[]
+
+  @@index([category])
+  @@index([slug])
+}
+
+model Language {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique // ISO 639-1 code (e.g., "en", "pt", "es")
+  
+  createdAt   DateTime @default(now())
+
+  users       UserLanguage[]
+  opportunities OpportunityLanguage[]
+
+  @@index([code])
+}
+
+// Many-to-many junction tables
+model UserSkill {
+  userId      String
+  skillId     String
+  proficiency String?  // "beginner", "intermediate", "advanced", "expert"
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+  @@index([skillId]) // For reverse lookups
+}
+
+model UserLanguage {
+  userId      String
+  languageId  String
+  proficiency String?  // "basic", "conversational", "fluent", "native"
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language    Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@id([userId, languageId])
+  @@index([languageId])
+}
+
+// ============================================================================
+// CATEGORIES (Hierarchical)
+// ============================================================================
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  parentId    String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Self-referential relation for hierarchy
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryHierarchy")
+
+  // Relations
+  opportunities Opportunity[]
+  userInterests UserInterest[]
+
+  @@index([parentId])
+  @@index([slug])
+}
+
+model UserInterest {
+  userId     String
+  categoryId String
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([userId, categoryId])
+  @@index([categoryId])
+}
+
+// ============================================================================
+// PLATFORMS
+// ============================================================================
+
+model Platform {
+  id                  String   @id @default(uuid())
+  name                String   @unique
+  slug                String   @unique
+  url                 String?
+  description         String?
+  status              String   @default("ACTIVE") // ACTIVE, LEGACY, INVITE_ONLY, SUSPENDED
+  
+  // Payment info
+  payRangeMin         Float?
+  payRangeMax         Float?
+  payRangeCurrency    String?  @default("USD")
+  
+  // Platform metadata
+  qualificationMethod String?
+  workerClassification String? // contractor, employee, hybrid
+  
+  // Computed from ratings
+  communityRating     Float?
+  totalRatings        Int      @default(0)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  opportunities       Opportunity[]
+  ratings             PlatformRating[]
+
+  @@index([status])
+  @@index([slug])
+  @@index([communityRating])
+}
+
+model PlatformRating {
+  id          String   @id @default(uuid())
+  userId      String
+  platformId  String
+  
+  // Rating dimensions (1-5)
+  fairPay     Int
+  clarity     Int
+  stability   Int
+  support     Int
+  volume      Int
+  
+  comment     String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform    Platform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platformId]) // One rating per user per platform
+  @@index([platformId])
+}
+
+// ============================================================================
+// OPPORTUNITIES (Core Entity)
+// ============================================================================
+
+model Opportunity {
+  id           String   @id @default(uuid())
+  externalId   String   // ID from source platform
+  platformId   String
+  categoryId   String?
+  
+  // Content
+  title        String
+  description  String?
+  
+  // URLs - NEW FIELDS
+  sourceUrl    String?  // Link to the opportunity on the platform
+  applicationUrl String? // Direct application link (if different from source)
+  
+  // Compensation
+  wageEstimate Float?
+  wageCurrency String?  @default("USD")
+  
+  // Classification
+  positionType String?  // TASK, BATCH, PROJECT
+  status       String   @default("ACTIVE") // ACTIVE, EXPIRED, FILLED, FLAGGED
+  
+  // Metadata
+  lastSeenAt   DateTime @default(now())
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  platform     Platform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  skills       OpportunitySkill[]
+  languages    OpportunityLanguage[]
+  savedBy      SavedOpportunity[]
+
+  // ============================================================================
+  // INDEXES - Critical for Performance
+  // ============================================================================
+  
+  @@unique([platformId, externalId]) // Deduplication
+  
+  // Single-column indexes for individual filters
+  @@index([platformId])
+  @@index([categoryId])
+  @@index([wageEstimate])
+  @@index([status])
+  @@index([lastSeenAt])
+  @@index([positionType])
+  
+  // Composite indexes for common query patterns
+  @@index([status, lastSeenAt]) // Already exists - dashboard default view
+  @@index([status, platformId, lastSeenAt]) // Filter by platform
+  @@index([status, categoryId, lastSeenAt]) // Filter by category
+  @@index([status, wageEstimate, lastSeenAt]) // Filter by wage
+  @@index([status, platformId, categoryId, lastSeenAt]) // Combined filters
+  @@index([platformId, status, wageEstimate]) // Platform-specific wage queries
+  
+  // Expiration cleanup queries
+  @@index([expiresAt])
+}
+
+model OpportunitySkill {
+  opportunityId String
+  skillId       String
+  required      Boolean @default(true)
+  
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  skill         Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([opportunityId, skillId])
+  @@index([skillId]) // For "opportunities requiring skill X"
+}
+
+model OpportunityLanguage {
+  opportunityId String
+  languageId    String
+  required      Boolean @default(true)
+  
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  language      Language    @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@id([opportunityId, languageId])
+  @@index([languageId])
+}
+
+// ============================================================================
+// USER INTERACTIONS
+// ============================================================================
+
+model SavedOpportunity {
+  userId        String
+  opportunityId String
+  notes         String?
+  savedAt       DateTime @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@id([userId, opportunityId])
+  @@index([userId, savedAt])
+}
