@@ -1,4 +1,3 @@
-[View on GitHub](https://github.com/kernelpenguin/arbtr)
 
 # Arbeiters
 
